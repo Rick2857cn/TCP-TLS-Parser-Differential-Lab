@@ -2,6 +2,7 @@ from contextlib import contextmanager
 from threading import Thread
 from lab.server import LocalServer, Handler as ServerHandler
 from lab.client import send
+from lab.firewall_naive import ALLOWED_IP
 
 
 @contextmanager
@@ -20,8 +21,9 @@ def running(handler, **attrs):
                 raise RuntimeError('server thread failed to stop')
 
 
-def exchange(handler, segments, mode='text'):
+def exchange(handler, segments, mode='text', destination_ip=ALLOWED_IP):
     with running(ServerHandler, received=[]) as backend:
-        with running(handler, upstream_port=backend.server_address[1], mode=mode) as firewall:
+        with running(handler, upstream_port=backend.server_address[1], mode=mode,
+                     destination_ip=destination_ip) as firewall:
             response = send(segments, firewall.server_address[1])
         return response, backend.received

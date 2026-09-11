@@ -2,7 +2,7 @@ import random
 import unittest
 from lab.tls_clienthello import generate_client_hello
 from lab.tls_parser import extract_sni
-from lab.firewall_naive import Handler as Naive, decision as naive
+from lab.firewall_naive import ALLOWED_IP, BLOCKED_IP, Handler as Naive, decision as naive
 from lab.firewall_reassembly import Handler as Reassembly, decision as reassembly
 from tests.support import exchange
 
@@ -37,6 +37,24 @@ class TLSTests(unittest.TestCase):
         for hostname, expected in [('blocked.test', 'BLOCK'), ('allowed.test', 'SERVER_OK')]:
             for handler in (Naive, Reassembly):
                 self.assertEqual(exchange(handler, [generate_client_hello(hostname)], 'tls')[0], expected)
+
+    def test_ip_or_sni_policy(self):
+        allowed = generate_client_hello('allowed.test')
+        cases = [(ALLOWED_IP, allowed, 'PASS'),
+                 (ALLOWED_IP, self.hello, 'BLOCK'),
+                 (BLOCKED_IP, allowed, 'BLOCK'),
+                 (BLOCKED_IP, self.hello, 'BLOCK')]
+        for destination_ip, hello, expected in cases:
+            for check in (naive, reassembly):
+                with self.subTest(destination_ip=destination_ip, check=check.__module__):
+                    self.assertEqual(check([hello], 'tls', destination_ip), expected)
+
+        cut = self.hello.index(b'blocked.test') + len(b'blocked.')
+        split = [self.hello[:cut], self.hello[cut:]]
+        for handler in (Naive, Reassembly):
+            result, received = exchange(handler, split, 'tls', BLOCKED_IP)
+            self.assertEqual(result, 'BLOCK')
+            self.assertEqual(received, [])
 
     def test_record_fragmentation(self):
         payload = self.hello[5:]
