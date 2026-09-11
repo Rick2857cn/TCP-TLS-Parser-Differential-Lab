@@ -12,3 +12,9 @@
 实测：allowed 双方 PASS；blocked 完整输入双方 BLOCK；blocked. + test 为 Naive PASS / Reassembly BLOCK，Naive 后端完整收到 blocked.test；TLS 完整 SNI 双方 BLOCK，拆分 SNI 为 Naive MISSED / Reassembly BLOCK。
 
 已检查网络调用：全部地址使用固定 HOST = 127.0.0.1。演示上下文关闭 listener、连接并等待线程退出。无软件安装和系统设置修改。
+
+## IP 或 SNI 组合策略扩展
+
+2026-09-11 增加最坏情况策略：模拟目标 IP `192.0.2.10` 或 SNI `blocked.test` 任一命中即阻断。`192.0.2.20` 作为允许对照；这些地址只进入内存策略判断，不用于 socket 连接。
+
+验收条件：四象限真值表全部通过；拆分 `blocked.test` 在允许 IP 下仍呈现 Naive MISSED / Reassembly BLOCK，在黑名单 IP 下两者均 BLOCK，后端未收到消息。Python 3.14 与 Python 3.10 均通过全量 22 项测试。

@@ -69,6 +69,8 @@ py -3.14 -m lab.client --case split --port 19003
 
 默认链路为 `Client → 127.0.0.1:19001（Naive）→ 127.0.0.1:19002（Server）`。改进版监听 `127.0.0.1:19003`。`--port` 与 `--upstream-port` 只能改变端口，代码不提供远端地址选项。Ctrl+C 停止手动服务。端口被占用时先检查既有进程，或更换本机端口，不要终止不明进程。
 
+`--simulated-destination-ip` 只设置防火墙判断使用的教学元数据，不会连接该地址。默认 `192.0.2.20` 代表允许 IP，`192.0.2.10` 代表黑名单 IP；二者均来自文档专用的 TEST-NET-1 地址段。实际 socket 仍只连接 `127.0.0.1`。
+
 TLS 实际链路演示已包含在 `python -m lab.demo` 中；手动防火墙也支持 `--mode tls`。Server 收取并重组 TLS 字节，但不是完整 TLS 服务端，不完成握手。
 
 ## 从零理解协议
@@ -114,6 +116,28 @@ Server: blocked. + test = blocked.test
 | TLS SNI 跨块 | MISSED（PASS） | BLOCK | 原始 ClientHello 字节 |
 
 TLS 演示在真实 ClientHello 的 `blocked.` 后切开。每块单独解析都无法获得完整 SNI，拼接后得到 `blocked.test`。单元测试也覆盖同一握手跨多个 TLS record 的情况，TLS record 边界与教学 Segment 边界是不同层次。
+
+## IP 或 SNI 任一命中即阻断
+
+升级后的策略采用最坏组合：
+
+```text
+BLOCK = destination IP 命中 OR SNI 命中
+```
+
+| 模拟目标 IP | SNI | 最终结果 |
+|---|---|---|
+| 允许 | allowed.test | PASS |
+| 允许 | blocked.test | BLOCK（SNI 命中） |
+| 黑名单 | allowed.test | BLOCK（IP 命中） |
+| 黑名单 | blocked.test | BLOCK（两者命中） |
+| 黑名单 | 拆分后的 blocked.test | BLOCK（IP 已命中） |
+
+这组结果给出了方案的边界：拆分只可能影响存在缺陷的 SNI 逐块解析，不能改变目标 IP。目标 IP 已在黑名单时，拆分 ClientHello 不会改变最终阻断结果。目标 IP 未命中时，原有 Parser Differential 仍然成立：Naive 可能漏掉跨块 SNI，Reassembly 会在重组后识别并阻断。
+
+模拟目标 IP 由实验运行器配置，客户端不能在 payload 中声明或修改它。这对应真实防火墙从连接上下文读取目标地址，而不是相信客户端自报地址。
+
+在 IP 判断已经得到 BLOCK 后，实验程序仍会排空本地教学协议的帧，再返回 `BLOCK`。这是为了避免 Windows 在尚有未读数据时关闭连接导致客户端收到连接重置；排空过程不解析 SNI，也不改变已经完成的 IP 判断。
 
 ## 消息完成与错误处理
 
