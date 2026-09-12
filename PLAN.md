@@ -14,3 +14,4 @@
 - PowerShell 一键脚本通过，Python 3.14 与 Python 3.10 均通过全量测试。
 - 中文 README、环境记录与验收日志已完成。
 - 最坏组合策略扩展：`IP 命中 OR SNI 命中`，使用 TEST-NET-1 地址作为只读教学元数据；实际网络仍限于 127.0.0.1。
+- 双重差分扩展：Naive 同时漏掉 IPv4 映射 IPv6 表示和跨块 SNI；改进版规范化 IP 并重组 TLS。
