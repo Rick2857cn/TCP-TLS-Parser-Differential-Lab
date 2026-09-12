@@ -56,6 +56,21 @@ class TLSTests(unittest.TestCase):
             self.assertEqual(result, 'BLOCK')
             self.assertEqual(received, [])
 
+    def test_composed_ip_and_sni_parser_differential(self):
+        mapped_blocked_ip = '::ffff:192.0.2.10'
+        allowed = generate_client_hello('allowed.test')
+        self.assertEqual(naive([allowed], 'tls', mapped_blocked_ip), 'PASS')
+        self.assertEqual(reassembly([allowed], 'tls', mapped_blocked_ip), 'BLOCK')
+
+        cut = self.hello.index(b'blocked.test') + len(b'blocked.')
+        split = [self.hello[:cut], self.hello[cut:]]
+        self.assertEqual(naive(split, 'tls', mapped_blocked_ip), 'PASS')
+        self.assertEqual(reassembly(split, 'tls', mapped_blocked_ip), 'BLOCK')
+        for handler, expected in ((Naive, 'SERVER_OK'), (Reassembly, 'BLOCK')):
+            result, received = exchange(handler, split, 'tls', mapped_blocked_ip)
+            self.assertEqual(result, expected)
+            self.assertEqual(received, [self.hello] if expected == 'SERVER_OK' else [])
+
     def test_record_fragmentation(self):
         payload = self.hello[5:]
         for split in (1, 3, 20, len(payload) - 1):
