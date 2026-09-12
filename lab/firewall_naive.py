@@ -1,4 +1,4 @@
-"""故意错误：只检查当前数据块，不执行跨块重组。"""
+"""故意错误：不规范化 IP 表示，也不执行跨块重组。"""
 import argparse
 import ipaddress
 import socket

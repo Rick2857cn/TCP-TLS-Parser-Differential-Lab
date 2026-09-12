@@ -8,6 +8,7 @@ from tests.support import exchange
 
 
 def main():
+    mapped_blocked_ip = '::ffff:192.0.2.10'
     hello = generate_client_hello('blocked.test')
     assert extract_sni(hello) == 'blocked.test'
     cut = hello.index(b'blocked.test') + len(b'blocked.')
@@ -21,7 +22,9 @@ def main():
              ('TLS allowed IP + blocked SNI', [hello], 'tls', ALLOWED_IP, ('BLOCK', 'BLOCK')),
              ('TLS blocked IP + allowed SNI', [allowed_hello], 'tls', BLOCKED_IP, ('BLOCK', 'BLOCK')),
              ('TLS allowed IP + split SNI', split, 'tls', ALLOWED_IP, ('PASS', 'BLOCK')),
-             ('TLS blocked IP + split SNI', split, 'tls', BLOCKED_IP, ('BLOCK', 'BLOCK'))]
+             ('TLS blocked IP + split SNI', split, 'tls', BLOCKED_IP, ('BLOCK', 'BLOCK')),
+             ('TLS mapped blocked IP + allowed SNI', [allowed_hello], 'tls', mapped_blocked_ip, ('PASS', 'BLOCK')),
+             ('TLS mapped blocked IP + split SNI', split, 'tls', mapped_blocked_ip, ('PASS', 'BLOCK'))]
     rows = []
     for label, segments, mode, destination_ip, expected in cases:
         verdicts = []
@@ -30,7 +33,8 @@ def main():
             verdict = 'PASS' if response == 'SERVER_OK' else response
             assert verdict == target, (label, verdict, target)
             assert received == ([b''.join(segments)] if target == 'PASS' else [])
-            verdicts.append('MISSED' if label == 'TLS allowed IP + split SNI' and verdict == 'PASS' else verdict)
+            missed = label == 'TLS allowed IP + split SNI' or label.startswith('TLS mapped blocked IP')
+            verdicts.append('MISSED' if missed and verdict == 'PASS' else verdict)
         rows.append((label, *verdicts))
     print('\nSequence out of order:', reconstruct([Segment(6, b'GHI'), Segment(0, b'ABC'), Segment(3, b'DEF')], 9))
     print('Sequence missing:', reconstruct([Segment(0, b'ABC'), Segment(6, b'GHI')]))
@@ -43,7 +47,7 @@ def main():
         print(f'{label:36} {naive:12} {reassembly}')
     print('=' * 72)
     print('Same logical data, different parser views. All assertions passed.')
-    print('A split SNI cannot bypass the OR policy when the destination IP is blocked.')
+    print('The composed bypass needs both an IP canonicalization bug and an SNI reassembly bug.')
 
 
 if __name__ == '__main__':

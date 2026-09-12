@@ -1,7 +1,16 @@
+import ipaddress
 import socket
 import socketserver
 from .protocol import HOST, TIMEOUT, ProtocolError, encode_frame, read_frame, read_segments
-from .firewall_naive import ALLOWED_IP, blocked, ip_blocked, main
+from .firewall_naive import ALLOWED_IP, BLOCKED_IP, blocked, main
+
+
+def ip_blocked(destination_ip):
+    address = ipaddress.ip_address(destination_ip)
+    # Treat an IPv4-mapped IPv6 spelling as the same logical IPv4 destination.
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+        address = address.ipv4_mapped
+    return address == ipaddress.ip_address(BLOCKED_IP)
 
 
 def decision(segments, mode='text', destination_ip=ALLOWED_IP):
