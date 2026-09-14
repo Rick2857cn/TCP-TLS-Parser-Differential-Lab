@@ -9,9 +9,12 @@
 在 PowerShell 中运行：
 
 ```powershell
-cd C:\Users\36840\campus-firewall-lab
+git clone https://github.com/Rick2857/TCP-TLS-Parser-Differential-Lab.git
+cd TCP-TLS-Parser-Differential-Lab
 .\scripts\run_demo.ps1
 ```
+
+已克隆过本仓库的，直接 `cd` 到仓库目录后运行 `.\scripts\run_demo.ps1` 即可。
 
 脚本选择原生 Python 3.11+，否则选择 3.10+，先执行全部单元测试，再启动真实 loopback Client → Firewall → Server 演示，最后打印总结表。服务在同一进程的线程中运行，使用系统分配的本机端口，退出时关闭 socket 并回收线程；没有后台残留服务。脚本不自动安装 Python 或 WSL。
 
